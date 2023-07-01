@@ -31,41 +31,67 @@ function App() {
 
       setChartData(chartData);
       console.log(chartData);
+
+      createChartWithData(chartData);
     } catch (e) {
       console.error('Error fetching data:', e);
     }
   };
 
-  useEffect(() => {
-    const createAndSetChartData = () => {
-      const chartContainer = document.getElementById('chart-container');
+  const createChartWithData = (data) => {
+    const chartContainer = document.getElementById('chart-container');
+    chartContainer.innerHTML = ''; // Clear previous chart
 
-      // Remove the previous chart if it exists
-      while (chartContainer.firstChild) {
-        chartContainer.firstChild.remove();
-      }
+    const chart = createChart(chartContainer, {
+      autoSize: true,
+      localizationOptions: {
+        dateFormat: 'MMMM dd, yyyy',
+      },
+    });
 
-      const chart = createChart(chartContainer, { width: 800, height: 400 });
-
-      const formattedData = chartData.map(({ date, open, high, low, close }) => ({
-        time: new Date(date).getTime(),
+    const formattedData = data.map(({ date, open, high, low, close }) => {
+      const time = new Date(date).getTime();
+      return {
+        time: time / 1000, // Divide by 1000 to convert milliseconds to seconds
         open,
         high,
         low,
         close,
-      }));
+      };
+    });
 
-      formattedData.sort((a, b) => a.time - b.time);
+    formattedData.sort((a, b) => a.time - b.time);
 
-      const candlestickSeries = chart.addCandlestickSeries();
+    const candlestickSeries = chart.addCandlestickSeries();
 
-      candlestickSeries.setData(formattedData);
-    };
+    candlestickSeries.setData(formattedData);
 
-    if (chartData.length > 0) {
-      createAndSetChartData();
-    }
-  }, [chartData]);
+    // Get the time scale API
+    const timeScaleApi = chart.timeScale();
+
+    // Customize the time scale
+    timeScaleApi.applyOptions({
+      timeVisible: true,
+      secondsVisible: false,
+    });
+
+    timeScaleApi.subscribeVisibleTimeRangeChange(() => {
+      // Format the dates on the time scale
+      const visibleBars = timeScaleApi.getVisibleLogicalRange();
+      const fromDate = formattedData[visibleBars.from]?.date;
+      const toDate = formattedData[visibleBars.to]?.date;
+
+      if (fromDate && toDate) {
+        const formattedFromDate = new Date(fromDate).toLocaleDateString();
+        const formattedToDate = new Date(toDate).toLocaleDateString();
+        const formattedRange = `${formattedFromDate} - ${formattedToDate}`;
+
+        timeScaleApi.options().timeVisibleRangeLabel = formattedRange;
+      }
+    });
+  };
+
+
 
   useEffect(() => {
     fetchData();
@@ -77,7 +103,7 @@ function App() {
         <h1>Currency Exchange Rate Tracker</h1>
       </header>
       <main className="App-main">
-        <div id="chart-container" style={{ width: '800px', height: '400px' }}></div>
+        <div id="chart-container"></div>
       </main>
       <footer className="App-footer">
         <p>Powered by Alexander Yanthar</p>
